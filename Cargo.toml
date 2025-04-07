@@ -1,0 +1,22 @@
+[package]
+name = "liblabel"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tokio = { version = "1", features = ["rt", "sync"] }
+btleplug = { version = "0.11", features = ["serde"] }
+rusb = { version = "0.9", optional = true }
+bluer = { version = "0.17", features = [ "bluetoothd", "rfcomm" ], optional = true }
+
+[features]
+default = [ "usb" ]
+usb = [ "dep:rusb" ]
+rfcomm = [ "dep:bluer" ]
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread"] }
+
+[[example]]
+name = "rfcomm-sock"
+required-features = [ "rfcomm" ]

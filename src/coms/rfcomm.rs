@@ -1,7 +1,7 @@
 use std::pin::pin;
 
 use super::interface::{ComDevice, ComError, ComSelector, ConnectionSnafu, PrinterCon};
-use futures::{AsyncRead, AsyncWrite, future::TryFuture};
+use futures::{AsyncRead, AsyncWrite};
 
 use bluer::{
     Address,
@@ -12,13 +12,17 @@ use snafu::ResultExt;
 use std::task::Poll;
 use tokio::io::{AsyncRead as _, AsyncWrite as _, ReadBuf};
 
-#[pin_project]
 pub struct RFCommCon {
+    stream: Option<BlueZStreamWrapper>,
+}
+
+#[pin_project]
+struct BlueZStreamWrapper {
     #[pin]
     stream: bluer::rfcomm::Stream,
 }
 
-impl AsyncRead for RFCommCon {
+impl AsyncRead for BlueZStreamWrapper {
     fn poll_read(
         self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
@@ -33,7 +37,7 @@ impl AsyncRead for RFCommCon {
     }
 }
 
-impl AsyncWrite for RFCommCon {
+impl AsyncWrite for BlueZStreamWrapper {
     fn poll_write(
         self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
@@ -69,7 +73,9 @@ impl PrinterCon for RFCommCon {
                         .await
                         .context(ConnectionSnafu {})?;
 
-                    Ok(Self { stream })
+                    Ok(Self {
+                        stream: Some(BlueZStreamWrapper { stream }),
+                    })
                 }
                 other => Err(ComError::IncompatibleSelectorError {
                     expected: "ComSelector::rfcomm".into(),
@@ -81,5 +87,9 @@ impl PrinterCon for RFCommCon {
 
     fn discover() -> impl Future<Output = Result<Vec<ComDevice>, ComError>> {
         async move { Ok(vec![]) }
+    }
+
+    fn take_stream(&mut self) -> Option<impl AsyncWrite + AsyncRead + Send + 'static> {
+        self.stream.take()
     }
 }
